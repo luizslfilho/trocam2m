@@ -1,0 +1,46 @@
+# Ambiente e segredos
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+dist/
+build/
+
+# Node / front-end
+node_modules/
+frontend/dist/
+.vite/
+*.tsbuildinfo
+playwright-report/
+test-results/
+
+# Docker e dados locais
+docker/data/
+*.dump
+*.sql.gz
+
+# Relatórios gerados
+*.pdf
+*.xlsx
+!tests/fixtures/**
+
+# Editor e sistema
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
