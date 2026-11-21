@@ -1,0 +1,120 @@
+# Ambiente local. Senhas vêm do .env (gerado por `make env`), nunca deste arquivo.
+x-backend: &backend
+  build:
+    context: ./backend
+    target: dev
+  env_file: .env
+  environment: &backend-env
+    APP_ENV: dev
+    DATABASE_URL: postgresql+asyncpg://telemetria_app:${APP_DB_PASSWORD:?rode make env}@timescaledb:5432/telemetria
+    MIGRATION_DATABASE_URL: postgresql+asyncpg://telemetria_owner:${POSTGRES_PASSWORD:?rode make env}@timescaledb:5432/telemetria
+    REDIS_URL: redis://:${REDIS_PASSWORD:?rode make env}@redis:6379/0
+    PYTEST_ADDOPTS: -p no:cacheprovider
+    MYPY_CACHE_DIR: /tmp/mypy_cache
+    RUFF_CACHE_DIR: /tmp/ruff_cache
+  volumes:
+    - ./backend:/app
+  depends_on:
+    timescaledb: { condition: service_healthy }
+    redis: { condition: service_healthy }
+  restart: unless-stopped
+
+x-worker-health: &worker-health
+  test: ["CMD", "python", "-m", "app.core.healthcheck"]
+  interval: 10s
+  timeout: 5s
+  retries: 3
+  start_period: 15s
+
+services:
+  api:
+    <<: *backend
+    environment:
+      <<: *backend-env
+      SERVICE_NAME: api
+    ports: ["127.0.0.1:8000:8000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/ready', timeout=3).status == 200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  worker:
+    <<: *backend
+    command: ["python", "-m", "app.ingestion.worker"]
+    environment: { <<: *backend-env, SERVICE_NAME: worker }
+    healthcheck: *worker-health
+
+  poller:
+    <<: *backend
+    command: ["python", "-m", "app.adapters.poller"]
+    environment: { <<: *backend-env, SERVICE_NAME: poller }
+    healthcheck: *worker-health
+
+  scheduler:
+    <<: *backend
+    command: ["python", "-m", "app.reports.scheduler"]
+    environment: { <<: *backend-env, SERVICE_NAME: scheduler }
+    healthcheck: *worker-health
+
+  timescaledb:
+    image: timescale/timescaledb:2.32.1-pg16
+    environment:
+      POSTGRES_DB: telemetria
+      POSTGRES_USER: telemetria_owner
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?rode make env}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?rode make env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/timescaledb/01-init.sh:/docker-entrypoint-initdb.d/01-init.sh:ro
+    ports: ["127.0.0.1:5432:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U telemetria_owner -d telemetria"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:8.8.4-alpine
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?rode make env}", "--appendonly", "yes"]
+    environment:
+      REDISCLI_AUTH: ${REDIS_PASSWORD:?rode make env}
+    volumes:
+      - redisdata:/data
+    ports: ["127.0.0.1:6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      target: prod
+    ports: ["127.0.0.1:8080:8080"]
+    depends_on:
+      api: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  # Ferramentas do front (lint, tsc). Não sobe com `make up`.
+  frontend-tools:
+    profiles: ["tools"]
+    build:
+      context: ./frontend
+      target: dev
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+
+volumes:
+  pgdata:
+  redisdata:
