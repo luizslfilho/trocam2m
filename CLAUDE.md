@@ -34,29 +34,30 @@ Se achar contradição ou lacuna na especificação: **pare e pergunte**. A corr
 
 **1.9 Preventiva** — plano por modelo ou ativo; gatilho horímetro, odômetro e/ou data (vence o que chegar primeiro). Estados `ok`, `due_soon`, `overdue`. Próximo vencimento pela leitura real da execução.
 
-**KPIs (Seção 5)** — seguir as definições da tabela da especificação ao pé da letra. Destaques: disponibilidade só com manutenção lançada (`suggested` não conta; aberta conta até agora); custo da ociosidade usa o preço do diesel **vigente na data**; litros estimados marcados como `estimado`; fator de CO₂ e sua fonte são configuração, nunca constante no código; divergência de abastecimento é **"anomalia a investigar"**, nunca "fraude", ligada a ativo e transação, nunca a pessoa.
+**KPIs (Seção 5)** — seguir as definições da tabela da especificação ao pé da letra. Destaques: utilização usa a jornada operacional do tenant (padrão 12 h/dia), nunca 24 h; disponibilidade só com manutenção lançada (`suggested` não conta; aberta conta até agora); custo da ociosidade usa o preço do diesel **vigente na data**; litros estimados marcados como `estimado`; fator de CO₂ (padrão 2,68 kg/L) e sua fonte são configuração, nunca constante no código; divergência de abastecimento é **"anomalia a investigar"**, nunca "fraude", ligada a ativo e transação, nunca a pessoa.
 
 ## Programa de Boa Condução — cuidado jurídico
 - É **prêmio por desempenho**, nunca desconto salarial (CLT art. 462). Textos: "gratificação conquistada", "pontos de conduta", "ocorrência", "peso". **Proibido** "multa", "desconto" e "penalidade" em tela, relatório e e-mail.
 - Premiação só é ativada depois de registrar a política do programa e a data de ciência dos motoristas.
 - Valores em R$ da gratificação só para `admin`.
 - Só desconta ocorrência `reliable` com motorista identificado; as demais aparecem com peso 0 (`void_quality`).
-- Ciclo fechado é congelado; dado atrasado depois do fechamento vira ajuste no ciclo seguinte. Pesos versionados: ocorrência passada mantém o peso vigente quando aconteceu. Contestação e decisão vão para o audit log.
+- Ciclo fechado é congelado; dado atrasado depois do fechamento vira ajuste no ciclo seguinte. Pesos versionados: ocorrência passada mantém o peso vigente quando aconteceu. Velocidade só por categoria e cerca (sem limite por via). Direção contínua só `truck` com motorista identificado. Contestação e decisão vão para o audit log.
 
 ## Segurança (Seção 4) e LGPD
 - Toda tabela de negócio com `tenant_id NOT NULL` indexado e RLS ativa. Role da aplicação **sem `BYPASSRLS`**. `SET LOCAL app.tenant_id` (e `app.reseller_id`) por transação, vindo **só do token**.
 - Teste de isolamento (tenant × tenant, revendedor × revendedor, inclusive com IDs alheios na API) roda no CI e bloqueia merge.
 - Ingestão: `X-Ingest-Token` por fonte e tenant, guardado como hash, `hmac.compare_digest`, limite de corpo, rate limit, Pydantic `extra="forbid"`, inválido vai para rejeitados sem derrubar o lote.
 - Credenciais de plataforma com envelope encryption (env em dev, KMS em produção); tokens das plataformas sempre somente leitura.
-- JWT curto + refresh em cookie `httpOnly`, `Secure`, `SameSite=Strict`; nada de token no `localStorage`. Papéis: `reseller_admin`, `admin`, `fleet_manager`, `viewer`, `driver` (só o próprio extrato; contesta).
+- JWT curto + refresh em cookie `httpOnly`, `Secure`, `SameSite=Strict`; nada de token no `localStorage`. Papéis: `reseller_admin`, `admin`, `fleet_manager`, `viewer`, `driver` (só o próprio extrato; contesta; ligado por `users.driver_id`, sem ele não acessa nada).
+- Front e API no mesmo host de cada revendedor, via proxy reverso (front em `/`, API em `/api`).
 - CORS restrito; audit log de acessos administrativos e de toda mudança de pontuação/configuração.
-- **LGPD:** dado de condução identifica o motorista. **Logs sem dados pessoais.** Retenção configurável por tenant; motorista acessa os próprios dados; finalidade do programa registrada por tenant.
+- **LGPD:** dado de condução identifica o motorista. **Logs sem dados pessoais.** Retenção configurável por tenant (ocorrências e ciclos fechados: 5 anos); motorista acessa os próprios dados; finalidade do programa registrada por tenant.
 
 ## Stack e comandos
 - Back-end: Python 3.12, FastAPI, Pydantic v2 + Settings, SQLAlchemy 2.0 async, asyncpg, Alembic. Ingestão em módulo isolado (extraível).
 - Redis Streams (ingestão → worker em lote) e Redis Hash (`asset_live_state`).
 - PostgreSQL 16 + TimescaleDB: hypertable `telemetry_raw` (compressão após 7 dias), aggregates horário e diário, RLS.
-- Front: TypeScript, React (Vite), Tailwind, shadcn/ui, Recharts, TanStack Query, MapLibre GL.
+- Front: TypeScript, React (Vite), Tailwind, shadcn/ui, Recharts, TanStack Query, MapLibre GL (tiles por variável de ambiente; nunca os públicos do OSM em produção).
 - Relatórios PDF/Excel no back-end, agendador e SMTP configurável.
 - Serviços no docker-compose: api, worker, poller, scheduler, timescaledb, redis, frontend.
 

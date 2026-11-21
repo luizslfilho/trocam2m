@@ -3,7 +3,7 @@
 Guia das etapas: `etapas-claude-code-v2.md`. Especificação: `docs/especificacao.md`.
 Status possíveis: `pendente`, `em andamento`, `concluída`, `bloqueada`.
 
-Etapa 0 (repositório, `CLAUDE.md` e plano): concluída em 2026-11-21, aguardando respostas às dúvidas da especificação.
+Etapa 0 (repositório, `CLAUDE.md` e plano): concluída em 2026-11-21. Dúvidas a–j respondidas pelo dono e registradas em `docs/decisoes.md`.
 
 | Etapa | Entrega | Status | Data | Observações |
 |---|---|---|---|---|
@@ -30,4 +30,5 @@ Etapa 0 (repositório, `CLAUDE.md` e plano): concluída em 2026-11-21, aguardand
 | Documentação oficial da RedGPS (autenticação, endpoints, formato e campos das mensagens) | etapa 5 | aguardando envio |
 | Nomes de parâmetro da Wialon por modelo de rastreador (CAN, RFID, PTO, cinto, eventos bruscos, tensão) | etapas 4 e 5 | a levantar |
 | Revisão do `dtc_dictionary` inicial por especialista | etapa 7 | a fazer após o seed |
-| Fonte oficial do fator de CO₂ do diesel | etapa 7 | a definir |
+| Fonte oficial do fator de CO₂ do diesel (padrão 2,68 kg/L) | etapa 7 | a definir |
+| Prazo padrão de retenção da telemetria bruta (LGPD) | etapa 14 | aguardando o dono |

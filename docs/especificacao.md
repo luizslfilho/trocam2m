@@ -97,7 +97,7 @@ Todo KPI devolvido pela API vem com `quality: "reliable" | "partial" | "unreliab
 - **Back-end:** Python 3.12, FastAPI, Pydantic v2, SQLAlchemy 2.0 async, asyncpg, Alembic para migrations. Ingestão isolada em módulo próprio, para poder ser extraída depois (ex.: para Go) sem mexer no resto.
 - **Fila e estado vivo:** Redis Streams (ingestão → worker de escrita em lote) e Redis Hash para `asset_live_state`.
 - **Banco:** PostgreSQL 16 + TimescaleDB: hypertable `telemetry_raw` com compressão após 7 dias, continuous aggregates horário e diário, Row-Level Security.
-- **Front-end:** TypeScript, React (Vite), Tailwind, shadcn/ui, Recharts, TanStack Query; mapa com MapLibre GL (tiles configuráveis).
+- **Front-end:** TypeScript, React (Vite), Tailwind, shadcn/ui, Recharts, TanStack Query; mapa com MapLibre GL. Provedor de tiles definido por variável de ambiente; em produção, nunca os tiles públicos do OpenStreetMap (em dev, qualquer provedor gratuito).
 - **Relatórios:** geração de PDF e Excel no back-end, agendador de tarefas (ex.: APScheduler ou worker dedicado) e envio por e-mail via SMTP configurável.
 - **Qualidade:** ruff, mypy (strict no domínio), pytest + pytest-asyncio, testes de integração com TimescaleDB real via docker; ESLint e `tsc --noEmit` no front.
 - **Local:** `docker-compose.yml` com api, worker, poller, scheduler, timescaledb, redis e frontend. `make up`, `make test`, `make seed`, `make lint`.
@@ -120,9 +120,10 @@ O retranslator da Wialon fala protocolos TCP próprios (Wialon IPS, Retranslator
 - **Teste obrigatório:** um tenant não lê nem escreve dado de outro, nem chamando a API com IDs alheios; um revendedor não acessa clientes de outro revendedor. Esse teste roda no CI e bloqueia merge.
 - **Ingestão:** token por fonte e por tenant (`X-Ingest-Token`), guardado como hash, comparado com `hmac.compare_digest`; limite de tamanho de corpo; rate limit por token; Pydantic estrito (`extra="forbid"`); payload inválido vai para uma fila de rejeitados com o motivo, sem derrubar o lote.
 - **Credenciais das plataformas** (tokens Wialon/RedGPS por tenant): criptografadas (envelope encryption; chave por variável de ambiente em dev, KMS em produção). Sempre tokens somente leitura.
-- **Usuários:** JWT de curta duração + refresh, entregue em cookie `httpOnly`, `Secure`, `SameSite=Strict` (nada de token no `localStorage`). RBAC: `reseller_admin` (administra seus clientes e a marca), `admin` (administra o próprio cliente, vê valores de gratificação), `fleet_manager` (opera, lança manutenção, trata contestações), `viewer` (só leitura), `driver` (vê apenas o próprio extrato e contesta ocorrências).
+- **Usuários:** JWT de curta duração + refresh, entregue em cookie `httpOnly`, `Secure`, `SameSite=Strict` (nada de token no `localStorage`). RBAC: `reseller_admin` (administra seus clientes e a marca), `admin` (administra o próprio cliente, vê valores de gratificação), `fleet_manager` (opera, lança manutenção, trata contestações), `viewer` (só leitura), `driver` (vê apenas o próprio extrato e contesta ocorrências). O usuário `driver` se liga ao cadastro de motorista por `users.driver_id` (nullable); `driver` sem `driver_id` não acessa nada.
+- **Mesmo host por revendedor:** front e API servidos no mesmo host de cada revendedor, atrás de proxy reverso (front em `/`, API em `/api`), para o cookie `SameSite=Strict` funcionar em domínio próprio.
 - **Geral:** Pydantic Settings + `.env.example`; CORS restrito; logs sem dados pessoais; audit log de acessos administrativos e de toda mudança de configuração de pontuação.
-- **LGPD:** dado de condução identifica o motorista. Política de retenção configurável por tenant; o motorista tem acesso aos próprios dados; finalidade do programa de condução registrada por tenant.
+- **LGPD:** dado de condução identifica o motorista. Política de retenção configurável por tenant (padrão: telemetria bruta por [A DEFINIR PELO DONO]; ocorrências e ciclos fechados por 5 anos); o motorista tem acesso aos próprios dados; finalidade do programa de condução registrada por tenant.
 
 ---
 
@@ -130,10 +131,10 @@ O retranslator da Wialon fala protocolos TCP próprios (Wialon IPS, Retranslator
 | KPI | Definição |
 |---|---|
 | Disponibilidade física | (horas do período − horas em manutenção) ÷ horas do período. Manutenção vem de **lançamento manual** na tabela `maintenance_events` (ativo, tipo preventiva/corretiva, motivo, início, fim, quem lançou). Parada aberta conta até agora. Sugestões (`suggested`) não contam. Sem nenhum lançamento no período, o KPI sai como `partial`. |
-| Utilização | horas trabalhando ÷ horas disponíveis. "Trabalhando" segue 1.1 por categoria. Também por dias usados no período e por grupo. |
+| Utilização | horas trabalhando ÷ horas disponíveis. "Horas disponíveis" = jornada operacional do tenant (Seção 6, padrão 12 h/dia) reduzida proporcionalmente pelas horas em manutenção; nunca 24 h como base. "Trabalhando" segue 1.1 por categoria. Também por dias usados no período e por grupo. |
 | Ociosidade evitável | horas de ociosidade (1.1, já sem PTO e sem cercas permitidas) e % sobre horas de motor ligado; paradas acima do tempo máximo configurado separadas dentro/fora de cercas. |
 | Custo da ociosidade | litros na ociosidade evitável × preço do diesel vigente na data. Litros: delta do contador de combustível do CAN; sem CAN, horas × `idle_lph` do modelo, marcado como `estimado`. |
-| CO₂ | litros × fator de emissão configurável por tenant (diesel na faixa de ~2,6–2,7 kg CO₂/L; valor e fonte como configuração, não fixo no código). Calculado para a ociosidade e para o consumo total (relatório de emissões diretas, escopo 1). |
+| CO₂ | litros × fator de emissão configurável por tenant (padrão do sistema 2,68 kg CO₂/L; valor e fonte como configuração, não fixo no código). Calculado para a ociosidade e para o consumo total (relatório de emissões diretas, escopo 1). |
 | Consumo | `truck`: km/L e L/h; `yellow_line`: L/h. Comparado à média padrão do modelo (meta). |
 | Autonomia | nível atual do tanque (L) × km/L real dos últimos 7 dias (ou média padrão do modelo, marcado como `estimado`); `yellow_line`: litros ÷ L/h. |
 | Faixa econômica | % do tempo com motor ligado nas faixas 3 e 4 de 1.2. |
@@ -169,9 +170,9 @@ Nomenclatura na interface: **Programa de Boa Condução**; o motorista tem **pon
 | Curva brusca | idem | 3 |
 | Sem cinto em movimento | quando o sinal existir; > 30 s acima de 10 km/h | 5 |
 | Condução sem identificação | ativo em movimento sem RFID lido quando o tenant exige RFID | 3 |
-| Direção contínua acima do limite | sem pausa mínima após o tempo máximo (Lei 13.103) | 5 |
+| Direção contínua acima do limite | sem pausa mínima após o tempo máximo (Lei 13.103); só `truck` e só com motorista identificado, senão não é gerada | 5 |
 
-Cada ocorrência guarda: tipo, motorista, ativo, início, fim, local, valor medido × limite (ex.: "92 km/h em via de 60"), peso aplicado, versão da configuração, qualidade do dado e status (`valid`, `contested`, `accepted_contest`, `rejected_contest`, `void_quality`).
+Cada ocorrência guarda: tipo, motorista, ativo, início, fim, local, valor medido × limite (ex.: "92 km/h com limite de 60 na cerca Pátio" ou "92 km/h com limite geral de 80"), peso aplicado, versão da configuração, qualidade do dado e status (`valid`, `contested`, `accepted_contest`, `rejected_contest`, `void_quality`).
 
 **Cuidado jurídico (refletir no texto da interface e na documentação)**
 - O programa é **prêmio por desempenho**, nunca desconto salarial (CLT art. 462). A interface fala em "gratificação conquistada", não em "multa" ou "desconto".
@@ -192,6 +193,7 @@ Hierarquia de herança: **padrão do sistema → cliente (tenant) → grupo de a
 **Velocidade**
 - Limite geral por categoria (padrão 80 km/h `truck`, 40 km/h `yellow_line`)
 - Limite por cerca (ex.: pátio 20, mina 40, perímetro urbano 60)
+- Não há limite por via na v1 (sem map-matching): vale o da cerca ou o limite geral da categoria
 - Tolerância (padrão +5 km/h) e duração mínima para contar (padrão 10 s)
 - Faixas leve/médio/grave (padrão +10 e +20 km/h)
 
@@ -207,9 +209,10 @@ Hierarquia de herança: **padrão do sistema → cliente (tenant) → grupo de a
 - Consumo em marcha lenta `idle_lph` por modelo (para quando não houver CAN)
 - Capacidade do tanque por modelo/ativo (litros)
 - Tolerância de divergência de abastecimento (padrão 5% ou X L, o maior)
-- Fator de CO₂ (kg/L) e a fonte do fator
+- Fator de CO₂ (kg/L, padrão 2,68) e a fonte do fator, obrigatória ao salvar
 
 **Jornada**
+- Jornada operacional (horas disponíveis por dia para a utilização; padrão 12 h/dia)
 - Tempo máximo de direção contínua (padrão 5 h 30) e pausa mínima (padrão 30 min)
 
 **Programa de Boa Condução**
@@ -266,7 +269,7 @@ Requisitos gerais: responsivo (funciona no celular), contraste AA, estados de ca
 Cada fase termina com testes passando, lint limpo, commit e um resumo do que ficou pendente.
 
 **Fase 1 – Fundação e banco**
-Estrutura de pastas (`backend/`, `frontend/`, `docker/`), docker-compose, Alembic, schema completo (resellers com branding, tenants, users, asset_groups, assets, drivers, driver_assignments, asset_models com limiares, param_mapping, telemetry_raw hypertable, asset_live_state, geofences, trips, dtc_dictionary, dtc_alerts, maintenance_events, maintenance_plans, fuel_prices, fuel_transactions, platform_credentials, config_settings, config_versions, scoring_rules, scoring_cycles, driver_occurrences, occurrence_contests, report_schedules, audit_log), RLS e continuous aggregates.
+Estrutura de pastas (`backend/`, `frontend/`, `docker/`), docker-compose, Alembic, schema completo (resellers com branding, tenants, users, asset_groups, assets, drivers, driver_assignments, asset_models com limiares, param_mapping, telemetry_raw hypertable, asset_live_state, geofences, trips, dtc_dictionary, dtc_alerts, maintenance_events, maintenance_plans, fuel_prices, fuel_transactions, platform_credentials, config_settings, config_versions, scoring_rules, scoring_cycles, driver_occurrences, occurrence_contests, report_schedules, audit_log, ingest_tokens (hash), rejected_packets; `users.driver_id` nullable), RLS e continuous aggregates.
 Aceite: `make up` sobe tudo; migrations aplicam do zero; teste de isolamento entre tenants e entre revendedores passa.
 
 **Fase 2 – Ingestão e normalização**
