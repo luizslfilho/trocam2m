@@ -7,7 +7,7 @@ Uma linha por decisão. Decisões que mudam regra de negócio também exigem aju
 | 2026-11-21 | Python 3.12 nos containers; 3.13 local aceito | Versão da especificação nos containers; desenvolvimento local já usa 3.13 |
 | 2026-11-21 | Repositório definitivo: `luizslfilho/telemetria` (privado), separado de qualquer repositório ou equipamento de trabalho | Projeto pessoal isolado; os documentos da etapa 0 foram redigidos numa sessão anterior e transferidos para cá |
 | 2026-11-21 | Especificação movida da raiz para `docs/especificacao.md` | Caminho usado no guia de etapas e no `CLAUDE.md` |
-| 2026-11-21 | Licença proprietária ("todos os direitos reservados"), titular a preencher | Produto comercial em repositório privado; confirmar com o dono |
+| 2026-11-21 | Licença proprietária ("todos os direitos reservados"), titular a preencher | Produto comercial em repositório privado; confirmado em 2026-11-22 (ver abaixo) |
 | 2026-11-21 | Conector RedGPS só com estrutura, `TODO(doc)` e fixture fictícia até a documentação chegar | Seção 0: não inventar formato de API |
 | 2026-11-21 | Utilização: "horas disponíveis" = jornada operacional do tenant (padrão 12 h/dia), reduzida proporcionalmente pelas horas em manutenção; nunca 24 h. "Jornada operacional" entra na Seção 6 | Resposta oficial do dono (dúvida a) |
 | 2026-11-21 | `users.driver_id` (nullable) liga o usuário `driver` ao cadastro; `driver` sem `driver_id` não acessa nada | Resposta oficial do dono (dúvida b) |
@@ -30,3 +30,8 @@ Uma linha por decisão. Decisões que mudam regra de negócio também exigem aju
 | 2026-11-21 | Logs JSON (structlog) com remoção de campos por nome (placa, nome, RFID, coordenadas, tokens etc.), em qualquer nível | LGPD: logs sem dados pessoais; na dúvida, o campo sai |
 | 2026-11-21 | `make test` e `make lint` rodam dentro dos containers; o CI roda direto no runner com TimescaleDB e Redis como serviços | Localmente só o Docker é necessário; CI mais rápido e sem docker-in-docker |
 | 2026-11-21 | Documentação OpenAPI em `/api/docs` só fora de produção | Não expor a superfície da API em produção |
+| 2026-11-22 | `truck` "trabalhando" = ignição ligada e velocidade ≥ 3 km/h, ou PTO ativa mesmo parado; parado com motor ligado sem PTO é ociosidade. Utilização de caminhão = movimento + PTO | Resposta oficial do dono (releitura 1); Seção 1.1 ajustada |
+| 2026-11-22 | Disponibilidade física usa 24 h/dia (calendário); utilização usa a jornada operacional | Disponibilidade mede se o ativo estava apto; utilização, quanto da jornada o apto trabalhou (releitura 2) |
+| 2026-11-22 | Fonte padrão do fator 2,68 kg CO₂/L: "Referência genérica para diesel fóssil (fator padrão IPCC 2006). Revisar com a ferramenta do Programa Brasileiro GHG Protocol, que considera a mistura obrigatória de biodiesel."; valor e fonte marcados "a revisar pelo cliente" | Resposta oficial do dono (releitura 3) |
+| 2026-11-22 | LICENSE proprietária, todos os direitos reservados, sem licença open source; titular pessoa física até a empresa ser formalizada (depois, CNPJ) | Resposta oficial do dono (releitura 4); nome do titular ainda em branco no arquivo |
+| 2026-11-22 | Qualidade sempre `partial` em código, banco e API; rótulo "Parcial" na interface | Padronização (releitura 5) |

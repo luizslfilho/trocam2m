@@ -25,7 +25,9 @@ Posicionamento do produto: independente de equipamento (lê as plataformas onde 
 | `truck` | odômetro (km) | km/L e L/h | ignição ligada, RPM > 0 e velocidade < 3 km/h |
 | `yellow_line` | horímetro (h) | L/h | ignição ligada, RPM > 0 e carga do motor abaixo do limiar de trabalho (padrão 20%, configurável por modelo) |
 
-Para `yellow_line`, "trabalhando" = carga do motor (SPN 92) ou torque real (SPN 513) acima do limiar, ou tomada de força ativa quando disponível. Sem sinal de carga, use RPM acima da marcha lenta e marque o KPI como qualidade `parcial`.
+Para `yellow_line`, "trabalhando" = carga do motor (SPN 92) ou torque real (SPN 513) acima do limiar, ou tomada de força ativa quando disponível. Sem sinal de carga, use RPM acima da marcha lenta e marque o KPI como qualidade `partial` (rótulo "Parcial" na interface).
+
+Para `truck`, "trabalhando" = ignição ligada e velocidade ≥ 3 km/h, ou tomada de força (PTO) ativa (Munck, cesto, betoneira, bomba), mesmo parado. Motor ligado parado sem PTO é ociosidade, não trabalho. A utilização de caminhão conta movimento + PTO.
 
 **Ociosidade evitável:** para as duas categorias, tempo com tomada de força (PTO) ativa — Munck, cesto, betoneira, bomba hidráulica — **não** é ociosidade; conta como trabalho. Também podem ser excluídas por configuração as paradas dentro de cercas marcadas como "ociosidade permitida" (ex.: oficina). O KPI exibido ao gestor é a ociosidade evitável; a bruta fica no drawer.
 
@@ -130,7 +132,7 @@ O retranslator da Wialon fala protocolos TCP próprios (Wialon IPS, Retranslator
 # 5. KPIs (DEFINIÇÕES QUE A API DEVE SEGUIR)
 | KPI | Definição |
 |---|---|
-| Disponibilidade física | (horas do período − horas em manutenção) ÷ horas do período. Manutenção vem de **lançamento manual** na tabela `maintenance_events` (ativo, tipo preventiva/corretiva, motivo, início, fim, quem lançou). Parada aberta conta até agora. Sugestões (`suggested`) não contam. Sem nenhum lançamento no período, o KPI sai como `partial`. |
+| Disponibilidade física | (horas do período − horas em manutenção) ÷ horas do período, com **24 h por dia** (horas de calendário). Mede se o ativo estava apto; a utilização mede quanto da jornada o ativo apto trabalhou. Manutenção vem de **lançamento manual** na tabela `maintenance_events` (ativo, tipo preventiva/corretiva, motivo, início, fim, quem lançou). Parada aberta conta até agora. Sugestões (`suggested`) não contam. Sem nenhum lançamento no período, o KPI sai como `partial`. |
 | Utilização | horas trabalhando ÷ horas disponíveis. "Horas disponíveis" = jornada operacional do tenant (Seção 6, padrão 12 h/dia) reduzida proporcionalmente pelas horas em manutenção; nunca 24 h como base. "Trabalhando" segue 1.1 por categoria. Também por dias usados no período e por grupo. |
 | Ociosidade evitável | horas de ociosidade (1.1, já sem PTO e sem cercas permitidas) e % sobre horas de motor ligado; paradas acima do tempo máximo configurado separadas dentro/fora de cercas. |
 | Custo da ociosidade | litros na ociosidade evitável × preço do diesel vigente na data. Litros: delta do contador de combustível do CAN; sem CAN, horas × `idle_lph` do modelo, marcado como `estimado`. |
@@ -209,7 +211,7 @@ Hierarquia de herança: **padrão do sistema → cliente (tenant) → grupo de a
 - Consumo em marcha lenta `idle_lph` por modelo (para quando não houver CAN)
 - Capacidade do tanque por modelo/ativo (litros)
 - Tolerância de divergência de abastecimento (padrão 5% ou X L, o maior)
-- Fator de CO₂ (kg/L, padrão 2,68) e a fonte do fator, obrigatória ao salvar
+- Fator de CO₂ (kg/L, padrão 2,68) e a fonte do fator, obrigatória ao salvar. Fonte padrão: "Referência genérica para diesel fóssil (fator padrão IPCC 2006). Revisar com a ferramenta do Programa Brasileiro GHG Protocol, que considera a mistura obrigatória de biodiesel." Valor e fonte padrão aparecem marcados como "a revisar pelo cliente"
 
 **Jornada**
 - Jornada operacional (horas disponíveis por dia para a utilização; padrão 12 h/dia)

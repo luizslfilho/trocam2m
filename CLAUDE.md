@@ -12,6 +12,7 @@ Se achar contradição ou lacuna na especificação: **pare e pergunte**. A corr
 **1.1 Categorias** — frota mista na v1: tudo funciona com `truck` e `yellow_line` juntos e separados.
 - `truck`: base odômetro; consumo km/L e L/h; ociosidade = ignição ligada, RPM > 0 e velocidade < 3 km/h.
 - `yellow_line`: base horímetro; consumo L/h; ociosidade = ignição ligada, RPM > 0 e carga abaixo do limiar (padrão 20 %, por modelo). "Trabalhando" = carga (SPN 92) ou torque (SPN 513) acima do limiar, ou PTO ativa. Sem sinal de carga: RPM acima da marcha lenta e KPI `partial`.
+- `truck` "trabalhando" = ignição ligada e velocidade ≥ 3 km/h, ou PTO ativa mesmo parado; utilização conta movimento + PTO.
 - **Ociosidade evitável**: PTO ativa (Munck, cesto, betoneira, bomba) **não** é ociosidade, é trabalho. Cercas de "ociosidade permitida" podem ser excluídas. O gestor vê a evitável; a bruta fica no drawer.
 
 **1.1.1 Revenda** — revendedor → cliente (tenant) → grupos de ativos. Marca do revendedor pelo host. Revendedor só vê os seus clientes; cliente nunca vê outro cliente. RLS nos dois níveis (`tenant_id`; tenants do `reseller_id`). Credencial de plataforma do revendedor pode ser compartilhada, com mapeamento explícito unidade → cliente.
@@ -28,13 +29,13 @@ Se achar contradição ou lacuna na especificação: **pare e pergunte**. A corr
 
 **1.6 Fora de ordem e idempotência** — chave única `(tenant_id, asset_id, source, ts_utc)`; Redis com TTL é atalho, garantia é `ON CONFLICT DO NOTHING`. Cálculo sempre por `ts_utc` do equipamento; guardar `received_at`. Dado atrasado reprocessa as janelas (aggregates com refresh ≥ 7 dias para trás; KPIs, viagens e ocorrências). Agregados diários no **fuso do tenant** (padrão `America/Sao_Paulo`).
 
-**1.7 Qualidade** — todo KPI da API traz `quality: reliable | partial | unreliable` e o motivo. `unreliable` aparece, mas fica fora de rankings e médias.
+**1.7 Qualidade** — todo KPI da API traz `quality: reliable | partial | unreliable` e o motivo (sempre `partial` em código, banco e API; "Parcial" na interface). `unreliable` aparece, mas fica fora de rankings e médias.
 
 **1.8 Viagens** — ignição (ou movimento) do início ao fim, com tolerância de parada (padrão 3 min). Motorista pelo período de vínculo. Recalcular com dado atrasado.
 
 **1.9 Preventiva** — plano por modelo ou ativo; gatilho horímetro, odômetro e/ou data (vence o que chegar primeiro). Estados `ok`, `due_soon`, `overdue`. Próximo vencimento pela leitura real da execução.
 
-**KPIs (Seção 5)** — seguir as definições da tabela da especificação ao pé da letra. Destaques: utilização usa a jornada operacional do tenant (padrão 12 h/dia), nunca 24 h; disponibilidade só com manutenção lançada (`suggested` não conta; aberta conta até agora); custo da ociosidade usa o preço do diesel **vigente na data**; litros estimados marcados como `estimado`; fator de CO₂ (padrão 2,68 kg/L) e sua fonte são configuração, nunca constante no código; divergência de abastecimento é **"anomalia a investigar"**, nunca "fraude", ligada a ativo e transação, nunca a pessoa.
+**KPIs (Seção 5)** — seguir as definições da tabela da especificação ao pé da letra. Destaques: utilização usa a jornada operacional do tenant (padrão 12 h/dia), nunca 24 h; disponibilidade física usa 24 h/dia (calendário); disponibilidade só com manutenção lançada (`suggested` não conta; aberta conta até agora); custo da ociosidade usa o preço do diesel **vigente na data**; litros estimados marcados como `estimado`; fator de CO₂ (padrão 2,68 kg/L) e sua fonte são configuração, nunca constante no código; divergência de abastecimento é **"anomalia a investigar"**, nunca "fraude", ligada a ativo e transação, nunca a pessoa.
 
 ## Programa de Boa Condução — cuidado jurídico
 - É **prêmio por desempenho**, nunca desconto salarial (CLT art. 462). Textos: "gratificação conquistada", "pontos de conduta", "ocorrência", "peso". **Proibido** "multa", "desconto" e "penalidade" em tela, relatório e e-mail.
