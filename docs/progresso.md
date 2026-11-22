@@ -7,7 +7,7 @@ Etapa 0 (repositório, `CLAUDE.md` e plano): concluída em 2026-11-21. Dúvidas 
 
 | Etapa | Entrega | Status | Data | Observações |
 |---|---|---|---|---|
-| 1 | Esqueleto, docker e CI | em andamento | 2026-11-21 | `make up` (7 serviços saudáveis), `make test` (10 testes) e `make lint` passando localmente; falta o CI verde, que depende do primeiro push para `luizslfilho/telemetria` |
+| 1 | Esqueleto, docker e CI | concluída | 2026-11-22 | `make up` (7 serviços saudáveis), `make test` (10 testes) e `make lint` passando; CI verde no primeiro push (execução 44965879581) |
 | 2 | Banco, RLS e agregados | pendente | | |
 | 3 | Autenticação, papéis e revenda | pendente | | |
 | 4 | Ingestão e normalização | pendente | | |
