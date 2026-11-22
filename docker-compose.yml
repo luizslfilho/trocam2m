@@ -8,6 +8,7 @@ x-backend: &backend
     APP_ENV: dev
     DATABASE_URL: postgresql+asyncpg://telemetria_app:${APP_DB_PASSWORD:?rode make env}@timescaledb:5432/telemetria
     MIGRATION_DATABASE_URL: postgresql+asyncpg://telemetria_owner:${POSTGRES_PASSWORD:?rode make env}@timescaledb:5432/telemetria
+    INGEST_DATABASE_URL: postgresql+asyncpg://telemetria_ingest:${INGEST_DB_PASSWORD:?rode make env}@timescaledb:5432/telemetria
     REDIS_URL: redis://:${REDIS_PASSWORD:?rode make env}@redis:6379/0
     PYTEST_ADDOPTS: -p no:cacheprovider
     MYPY_CACHE_DIR: /tmp/mypy_cache
@@ -65,6 +66,7 @@ services:
       POSTGRES_USER: telemetria_owner
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?rode make env}
       APP_DB_PASSWORD: ${APP_DB_PASSWORD:?rode make env}
+      INGEST_DB_PASSWORD: ${INGEST_DB_PASSWORD:?rode make env}
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./docker/timescaledb/01-init.sh:/docker-entrypoint-initdb.d/01-init.sh:ro

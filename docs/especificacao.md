@@ -79,7 +79,7 @@ Tempo por faixa **ponderado pela duração de cada amostra**, nunca pela contage
 - Chave de unicidade: `(tenant_id, asset_id, source, ts_utc)`. Redis com TTL é só um atalho; a garantia final é `ON CONFLICT DO NOTHING` no banco.
 - Todo cálculo usa `ts_utc` do equipamento, nunca a hora de chegada. Guardar também `received_at`.
 - Dado atrasado deve reprocessar as janelas afetadas: política de refresh dos continuous aggregates cobrindo pelo menos 7 dias para trás e recálculo de KPIs, viagens e ocorrências do período atingido.
-- Agregados diários no **fuso do tenant** (padrão `America/Sao_Paulo`), não em UTC.
+- Agregados diários no **fuso do tenant** (padrão `America/Sao_Paulo`), não em UTC. Montados a partir do agregado horário em UTC; vale para fusos de hora cheia (todo o Brasil). Fuso com meia hora exige revisão.
 
 ## 1.7 Qualidade do dado (diferencial do produto)
 Todo KPI devolvido pela API vem com `quality: "reliable" | "partial" | "unreliable"` e o motivo (ex.: "6 ativos sem RPM via CAN no período", "lacuna de comunicação de 3 h"). KPI `unreliable` é exibido, mas fica fora de rankings e médias da frota.
@@ -98,7 +98,8 @@ Todo KPI devolvido pela API vem com `quality: "reliable" | "partial" | "unreliab
 # 2. STACK
 - **Back-end:** Python 3.12, FastAPI, Pydantic v2, SQLAlchemy 2.0 async, asyncpg, Alembic para migrations. Ingestão isolada em módulo próprio, para poder ser extraída depois (ex.: para Go) sem mexer no resto.
 - **Fila e estado vivo:** Redis Streams (ingestão → worker de escrita em lote) e Redis Hash para `asset_live_state`.
-- **Banco:** PostgreSQL 16 + TimescaleDB: hypertable `telemetry_raw` com compressão após 7 dias, continuous aggregates horário e diário, Row-Level Security.
+- **Banco:** PostgreSQL 16 + TimescaleDB: hypertable `telemetry_raw` com compressão após 7 dias, continuous aggregate horário (UTC) e diário montado a partir dele no fuso do tenant, Row-Level Security nas tabelas relacionais. Como o TimescaleDB não aceita RLS em hypertable com compressão nem com continuous aggregate, a telemetria fica num schema interno sem acesso direto da aplicação (ver Seção 4).
+- **Cercas:** sem PostGIS; geometria em GeoJSON com bbox e teste ponto-em-cerca em Python atrás de uma interface (`GeofenceMatcher`). Tipos: polígono, círculo e linha com largura.
 - **Front-end:** TypeScript, React (Vite), Tailwind, shadcn/ui, Recharts, TanStack Query; mapa com MapLibre GL. Provedor de tiles definido por variável de ambiente; em produção, nunca os tiles públicos do OpenStreetMap (em dev, qualquer provedor gratuito).
 - **Relatórios:** geração de PDF e Excel no back-end, agendador de tarefas (ex.: APScheduler ou worker dedicado) e envio por e-mail via SMTP configurável.
 - **Qualidade:** ruff, mypy (strict no domínio), pytest + pytest-asyncio, testes de integração com TimescaleDB real via docker; ESLint e `tsc --noEmit` no front.
@@ -118,7 +119,7 @@ O retranslator da Wialon fala protocolos TCP próprios (Wialon IPS, Retranslator
 ---
 
 # 4. SEGURANÇA
-- **Multi-tenant:** toda tabela de negócio com `tenant_id` NOT NULL e indexado; RLS ativa em todas; role da aplicação sem `BYPASSRLS`; tenant aplicado via `SET LOCAL app.tenant_id` em cada transação, vindo do token, nunca do corpo da requisição.
+- **Multi-tenant:** toda tabela de negócio com `tenant_id` NOT NULL e indexado; RLS ativa em todas as tabelas relacionais. Exceção: `telemetry_raw` e os aggregates ficam sem RLS num schema interno sem GRANT para a aplicação, lidos só por funções que exigem o contexto de tenant (erro se ausente) e gravados por uma role de ingestão só com INSERT; role da aplicação sem `BYPASSRLS`; tenant aplicado via `SET LOCAL app.tenant_id` em cada transação, vindo do token, nunca do corpo da requisição.
 - **Teste obrigatório:** um tenant não lê nem escreve dado de outro, nem chamando a API com IDs alheios; um revendedor não acessa clientes de outro revendedor. Esse teste roda no CI e bloqueia merge.
 - **Ingestão:** token por fonte e por tenant (`X-Ingest-Token`), guardado como hash, comparado com `hmac.compare_digest`; limite de tamanho de corpo; rate limit por token; Pydantic estrito (`extra="forbid"`); payload inválido vai para uma fila de rejeitados com o motivo, sem derrubar o lote.
 - **Credenciais das plataformas** (tokens Wialon/RedGPS por tenant): criptografadas (envelope encryption; chave por variável de ambiente em dev, KMS em produção). Sempre tokens somente leitura.

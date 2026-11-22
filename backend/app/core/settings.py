@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     database_url: SecretStr
     # Role dona do schema, usada só pelo Alembic.
     migration_database_url: SecretStr | None = None
+    # Role do worker de ingestão: só INSERT na telemetria.
+    ingest_database_url: SecretStr | None = None
     redis_url: SecretStr
 
     ready_timeout_seconds: float = Field(default=2.0, gt=0)

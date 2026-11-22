@@ -1,4 +1,4 @@
-"""Engine assíncrono do SQLAlchemy. O helper de `SET LOCAL app.tenant_id` chega na etapa 2."""
+"""Engine assíncrono do SQLAlchemy. Contexto de tenant: `app.db.context.tenant_scope`."""
 
 from functools import lru_cache
 

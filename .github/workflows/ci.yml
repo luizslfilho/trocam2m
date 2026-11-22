@@ -35,6 +35,7 @@ jobs:
       # Credenciais descartáveis, só do banco efêmero do CI.
       DATABASE_URL: postgresql+asyncpg://telemetria_app:ci-only-app@localhost:5432/telemetria
       MIGRATION_DATABASE_URL: postgresql+asyncpg://telemetria_owner:ci-only-owner@localhost:5432/telemetria
+      INGEST_DATABASE_URL: postgresql+asyncpg://telemetria_ingest:ci-only-ingest@localhost:5432/telemetria
       REDIS_URL: redis://localhost:6379/0
       APP_ENV: test
     steps:
@@ -52,13 +53,17 @@ jobs:
           POSTGRES_USER: telemetria_owner
           POSTGRES_DB: telemetria
           APP_DB_PASSWORD: ci-only-app
+          INGEST_DB_PASSWORD: ci-only-ingest
         run: PGHOST=localhost bash ../docker/timescaledb/01-init.sh
       - run: ruff check .
       - run: ruff format --check .
       - run: mypy app tests
       - name: Migrations sobem do zero
         run: alembic upgrade head
-      - run: pytest -v
+      - name: Migrations descem e sobem de novo
+        run: alembic downgrade base && alembic upgrade head
+      - name: Testes (inclui isolamento entre tenants e revendedores; bloqueia merge)
+        run: pytest -v
 
   frontend:
     runs-on: ubuntu-24.04

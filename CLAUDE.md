@@ -46,7 +46,10 @@ Se achar contradição ou lacuna na especificação: **pare e pergunte**. A corr
 
 ## Segurança (Seção 4) e LGPD
 - Toda tabela de negócio com `tenant_id NOT NULL` indexado e RLS ativa. Role da aplicação **sem `BYPASSRLS`**. `SET LOCAL app.tenant_id` (e `app.reseller_id`) por transação, vindo **só do token**.
-- Teste de isolamento (tenant × tenant, revendedor × revendedor, inclusive com IDs alheios na API) roda no CI e bloqueia merge.
+- **Exceção aprovada (TimescaleDB não permite RLS com compressão nem com continuous aggregate):** `telemetry_raw` e os aggregates ficam no schema `telemetry_internal`, **sem RLS e sem nenhum GRANT para `telemetria_app`**. A aplicação só lê telemetria pelas funções `app.telemetry_*` (`SECURITY DEFINER`), que filtram pelos tenants do contexto e **levantam erro** se `app.tenant_id`/`app.reseller_id` não estiver definido (nunca vazio em silêncio). O worker usa a role `telemetria_ingest`, só com INSERT na telemetria. FK `(tenant_id, asset_id)` → `assets` impede gravar ativo com tenant alheio. Nunca dar GRANT em `telemetry_internal` para a aplicação.
+- Exceções ao `tenant_id NOT NULL`: `users` (`reseller_admin` sem tenant; CHECK garante os demais papéis com tenant), `platform_credentials` (credencial compartilhada do revendedor; unidade → tenant em `platform_unit_map`, sem mapeamento nada entra) e `audit_log` (ação do revendedor). `dtc_dictionary` e `param_mapping` são catálogos globais: leitura para a aplicação, escrita só por migration.
+- Roles: `telemetria_owner` (migrations), `telemetria_app` (API, sujeita a RLS), `telemetria_ingest` (worker). Nenhuma com SUPERUSER ou BYPASSRLS, exceto a owner da imagem em dev.
+- Teste de isolamento (tenant × tenant, revendedor × revendedor, inclusive com IDs alheios na API e nas funções de telemetria) roda no CI e bloqueia merge.
 - Ingestão: `X-Ingest-Token` por fonte e tenant, guardado como hash, `hmac.compare_digest`, limite de corpo, rate limit, Pydantic `extra="forbid"`, inválido vai para rejeitados sem derrubar o lote.
 - Credenciais de plataforma com envelope encryption (env em dev, KMS em produção); tokens das plataformas sempre somente leitura.
 - JWT curto + refresh em cookie `httpOnly`, `Secure`, `SameSite=Strict`; nada de token no `localStorage`. Papéis: `reseller_admin`, `admin`, `fleet_manager`, `viewer`, `driver` (só o próprio extrato; contesta; ligado por `users.driver_id`, sem ele não acessa nada).
@@ -57,7 +60,8 @@ Se achar contradição ou lacuna na especificação: **pare e pergunte**. A corr
 ## Stack e comandos
 - Back-end: Python 3.12, FastAPI, Pydantic v2 + Settings, SQLAlchemy 2.0 async, asyncpg, Alembic. Ingestão em módulo isolado (extraível).
 - Redis Streams (ingestão → worker em lote) e Redis Hash (`asset_live_state`).
-- PostgreSQL 16 + TimescaleDB: hypertable `telemetry_raw` (compressão após 7 dias), aggregates horário e diário, RLS.
+- PostgreSQL 16 + TimescaleDB: hypertable `telemetry_raw` (compressão após 7 dias), aggregate horário em UTC e diário montado no fuso do tenant (`app.telemetry_daily`; premissa: fuso de hora cheia), RLS nas tabelas relacionais.
+- Cercas: GeoJSON em `jsonb` + bbox; ponto-em-cerca em Python atrás de `GeofenceMatcher` (shapely; trocável por PostGIS).
 - Front: TypeScript, React (Vite), Tailwind, shadcn/ui, Recharts, TanStack Query, MapLibre GL (tiles por variável de ambiente; nunca os públicos do OSM em produção).
 - Relatórios PDF/Excel no back-end, agendador e SMTP configurável.
 - Serviços no docker-compose: api, worker, poller, scheduler, timescaledb, redis, frontend.

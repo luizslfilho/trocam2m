@@ -9,7 +9,7 @@ RUN_FRONT := $(COMPOSE) --profile tools run --rm frontend-tools
 env: .env
 .env:
 	@cp .env.example .env
-	@for v in POSTGRES_PASSWORD APP_DB_PASSWORD REDIS_PASSWORD; do \
+	@for v in POSTGRES_PASSWORD APP_DB_PASSWORD INGEST_DB_PASSWORD REDIS_PASSWORD; do \
 	  sed -i "s/^$$v=$$/$$v=$$(openssl rand -hex 24)/" .env; \
 	done
 	@echo ".env criado com senhas aleatórias."
